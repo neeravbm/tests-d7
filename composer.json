@@ -1,0 +1,13 @@
+{
+    "require": {},
+    "minimum-stability": "dev",
+    "config": {
+        "bin-dir": "bin/"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "4.*"
+    },
+    "autoload": {
+        "classmap": ["phpunit_tests", "phpunit_tests/helper", "phpunit_tests/helper/entities", "phpunit_tests/helper/forms"]
+    }
+}
