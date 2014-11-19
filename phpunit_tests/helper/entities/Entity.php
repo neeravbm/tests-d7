@@ -22,9 +22,23 @@ abstract class Entity {
   private $entity;
 
   /**
-   * Prevent an object from being constructed.
+   * Entity type.
+   *
+   * @var string $entity_type
+   *   Type of entity.
    */
-  private function __construct() {}
+  private $entity_type;
+
+  /**
+   * Prevent an object from being constructed.
+   *
+   * @param object $entity
+   *   Entity object.
+   */
+  protected function __construct($entity) {
+    $this->entity = $entity;
+    $this->entity_type = $this->getEntityType();
+  }
 
   /**
    * Returns the entity id.
@@ -33,8 +47,7 @@ abstract class Entity {
    *   Entity id.
    */
   public function getId() {
-    $entity_type = $this->getEntityType();
-    return entity_id($entity_type, $this->entity);
+    return entity_id($this->entity_type, $this->entity);
   }
 
   /**
@@ -44,6 +57,10 @@ abstract class Entity {
    *   Entity type if one exists, FALSE otherwise.
    */
   public function getEntityType() {
+    if (!is_null($this->entity_type)) {
+      return $this->entity_type;
+    }
+
     $classes = class_parents(get_called_class());
     if (sizeof($classes) >= 2) {
       // If there are at least 2 parent classes, such as Entity and Node.
@@ -66,12 +83,31 @@ abstract class Entity {
   }
 
   /**
+   * Reloads the entity from database.
+   */
+  public function reload() {
+    $entity_id = $this->getId();
+    if (empty($entity_id)) {
+      $this->entity = NULL;
+      return;
+    }
+
+    $entities = entity_load($this->entity_type, array($entity_id), array(), TRUE);
+    if (!empty($entities[$entity_id])) {
+      $this->entity = $entities[$entity_id];
+    }
+    else {
+      $this->entity = NULL;
+    }
+  }
+
+  /**
    * Returns the entity object.
    *
    * @return object $entity
    *   Entity object.
    */
-  protected function getEntity() {
+  public function getEntity() {
     return $this->entity;
   }
 
@@ -81,7 +117,7 @@ abstract class Entity {
    * @param object $entity
    *   Entity object.
    */
-  protected function setEntity($entity) {
+  public function setEntity($entity) {
     $this->entity = $entity;
   }
 
@@ -95,18 +131,17 @@ abstract class Entity {
    *   A renderable array of the entity for the provided view mode. If there is any error, then FALSE is returned.
    */
   public function view($view_mode = 'default') {
-    $entity_type = $this->getEntityType();
     $entities = array($this->entity);
     $langcode = NULL;
     $page = NULL;
 
-    $info = entity_get_info($entity_type);
+    $info = entity_get_info($this->entity_type);
     if (isset($info['view callback'])) {
       $entities = entity_key_array_by_property($entities, $info['entity keys']['id']);
-      return $info['view callback']($entities, $view_mode, $langcode, $entity_type);
+      return $info['view callback']($entities, $view_mode, $langcode, $this->entity_type);
     }
     elseif (in_array('EntityAPIControllerInterface', class_implements($info['controller class']))) {
-      return entity_get_controller($entity_type)->view($entities, $view_mode, $langcode, $page);
+      return entity_get_controller($this->entity_type)->view($entities, $view_mode, $langcode, $page);
     }
     return FALSE;
   }
@@ -115,9 +150,7 @@ abstract class Entity {
    * Saves the entity to database. This is copied from entity_save() function since entity module may not be installed.
    */
   public function save() {
-    $entity_type = $this->getEntityType();
-
-    $info = entity_get_info($entity_type);
+    $info = entity_get_info($this->entity_type);
     if (method_exists($this->entity, 'save')) {
       $this->entity->save();
     }
@@ -125,7 +158,7 @@ abstract class Entity {
       $info['save callback']($this->entity);
     }
     elseif (in_array('EntityAPIControllerInterface', class_implements($info['controller class']))) {
-      entity_get_controller($entity_type)->save($this->entity);
+      entity_get_controller($this->entity_type)->save($this->entity);
     }
   }
 
@@ -133,14 +166,12 @@ abstract class Entity {
    * Deletes the entity from database. This is copied from the entity_delete() function since entity module may not be installed.
    */
   public function delete() {
-    $entity_type = $this->getEntityType();
-
-    $info = entity_get_info($entity_type);
+    $info = entity_get_info($this->entity_type);
     if (isset($info['deletion callback'])) {
       $info['deletion callback']($this->getId());
     }
     elseif (in_array('EntityAPIControllerInterface', class_implements($info['controller class']))) {
-      entity_get_controller($entity_type)->delete(array($this->getId()));
+      entity_get_controller($this->entity_type)->delete(array($this->getId()));
     }
   }
 
@@ -162,8 +193,7 @@ abstract class Entity {
    *   TRUE if user has access and FALSE otherwise.
    */
   public function hasViewAccess() {
-    $entity_type = $this->getEntityType();
-    return entity_access('view', $entity_type, $this->entity);
+    return entity_access('view', $this->entity_type, $this->entity);
   }
 
   /**
@@ -173,8 +203,7 @@ abstract class Entity {
    *   TRUE if user has access and FALSE otherwise.
    */
   public function hasEditAccess() {
-    $entity_type = $this->getEntityType();
-    return entity_access('update', $entity_type, $this->entity);
+    return entity_access('update', $this->entity_type, $this->entity);
   }
 
   /**
@@ -184,8 +213,7 @@ abstract class Entity {
    *   TRUE if user has access and FALSE otherwise.
    */
   public function hasDeleteAccess() {
-    $entity_type = $this->getEntityType();
-    return entity_access('delete', $entity_type, $this->entity);
+    return entity_access('delete', $this->entity_type, $this->entity);
   }
 
   /**
@@ -208,5 +236,62 @@ abstract class Entity {
     $class = get_called_class();
     $field_values = field_get_items(drupal_strtolower($class), $this->entity, $field_name);
     return $field_values;
+  }
+
+  /**
+   * Returns label of the entity.
+   *
+   * @return bool|string $label
+   *   Entity label.
+   */
+  public function getLabel() {
+    $entity_type = $this->getEntityType();
+    return entity_label($entity_type, $this->entity);
+  }
+
+  public function __call($name, $arguments) {
+    if (strpos($name, 'get') === 0) {
+      // Function name starts with "get".
+      $field_name = preg_replace('/(?<=\\w)(?=[A-Z])/',"_$1", substr($name, 3));
+      $field_name = strtolower($field_name);
+      $field = field_info_field($field_name);
+      $is_property = FALSE;
+      if (is_null($field)) {
+        $is_property = TRUE;
+      }
+      else {
+        list(, , $bundle) = entity_extract_ids($this->entity_type, $this->entity);
+        $instance = field_info_instance($this->entity_type, $field_name, $bundle);
+        if (is_null($instance)) {
+          $is_property = TRUE;
+        }
+        else {
+          // Get the field instance value here.
+          $widget = $instance['widget']['type'];
+          $function = "get" . str_replace(" ", "", ucwords(str_replace("_", " ", $widget)));
+          return $this->$function($field_name);
+        }
+      }
+
+      if ($is_property && !empty($this->entity->$field_name)) {
+        return $this->entity->$field_name;
+      }
+
+      return NULL;
+    }
+  }
+
+  public function getTextTextareaWithSummary($field_name) {
+    $field = field_get_items($this->entity_type, $this->entity, $field_name);
+    $output = array();
+    foreach ($field as $key => $val) {
+      if (!empty($val['safe_value'])) {
+        $output[] = $val['safe_value'];
+      }
+      else {
+        $output[] = $val['value'];
+      }
+    }
+    return $output;
   }
 }

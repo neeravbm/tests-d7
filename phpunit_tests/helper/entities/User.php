@@ -147,10 +147,11 @@ class User extends Entity {
    *   User object.
    */
   public static function loginProgrammatically($username) {
-    $account = user_load_by_name($username);
     global $user;
-    $user = $account;
-    module_invoke_all('user_login', $user);
-    return new User($account->uid);
+    $user = user_load_by_name($username);
+    $login_array = array('name' => $username);
+    user_login_finalize($login_array);
+    //module_invoke_all('user_login', $user);
+    return new User($user->uid);
   }
 }

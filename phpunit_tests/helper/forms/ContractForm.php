@@ -35,7 +35,7 @@ final class ContractForm extends NodeForm {
    * @param string $contract_name
    *   Name of the contract.
    */
-  function fillContractName($contract_name) {
+  /*function fillContractName($contract_name) {
     $this->fillTextField('field_contract_name', $contract_name);
-  }
+  }*/
 }

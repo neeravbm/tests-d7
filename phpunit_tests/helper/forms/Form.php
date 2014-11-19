@@ -14,6 +14,7 @@ class Form {
   private $form_id;
   private $form;
   private $form_state;
+  private $errors;
   private $ajax_post;
   private $upload_image;
 
@@ -52,6 +53,14 @@ class Form {
     return $this->form_state;
   }
 
+  public function getErrors() {
+    return $this->errors;
+  }
+
+  public function clearErrors() {
+    unset($this->errors);
+  }
+
   /**
    * Submit the form.
    *
@@ -62,9 +71,11 @@ class Form {
     $args = func_get_args();
     $this->form_state['build_info']['args'] = $args;
     $this->form_state['programmed_bypass_access_check'] = FALSE;
+    $this->clearErrors();
     drupal_form_submit($this->form_id, $this->form_state);
     if ($errors = form_get_errors()) {
-      return $errors;
+      $this->errors = $errors;
+      return FALSE;
     }
 
     return TRUE;
@@ -98,7 +109,8 @@ class Form {
    * @param string $field_name
    *   Field name.
    * @param array $values
-   *   Array of field values if the field is multi-valued or a single value if the field is single-valued.
+   *   Array of field values if the field is multi-valued or a single value if
+   *   the field is single-valued.
    */
   public function fillTextField($field_name, $values) {
     if (is_array($values)) {
@@ -177,6 +189,76 @@ class Form {
     }
   }
 
+  /**
+   * Fill text area with summary widget.
+   *
+   * @param string $field_name
+   *   Field name.
+   * @param string|array $values
+   *   Either a string or an array. If it's a string, then it is assumed that
+   *   the field is single-valued. If it is an array of strings, then it is
+   *   assumed that the field is multi-valued and the strings in the array
+   *   correspond to multiple text values of this field. If it is an array of
+   *   arrays, then it is assumed that the field is multi-valued and the inside
+   *   array can have the keys 'value', 'summary' or 'format' which will be set
+   *   in form_state. Here are a few examples this parameter can take:
+   *   "<p>This is text string.</p>", or
+   *   array("<p>This is text string 1.</p>", "This is text string 2."), or
+   *   array(
+   *     array(
+   *       'value' => "This is text string 1.",
+   *       'summary' => "<p>Text string 1</p>",
+   *       'format' => 'filtered_html',
+   *     ),
+   *     array(
+   *       'value' => "This is text string 2.",
+   *       'summary' => "Text string 2",
+   *       'format' => 'plain_text',
+   *     ),
+   *   );
+   * @param string $summary
+   *   Summary text. If $values doesn't specify summary explicitly, then this
+   *   parameter is used as a default.
+   * @param string $format
+   *   Text format. If $values doesn't specify text format explicitly, then
+   *   this parameter is used as a default.
+   */
+  public function fillTextTextareaWithSummary (
+    $field_name,
+    $values,
+    $summary = '',
+    $format = ''
+  ) {
+    $defaults = array();
+    if (!empty($summary)) {
+      $defaults['summary'] = $summary;
+    }
+    if (!empty($format)) {
+      $defaults['format'] = $format;
+    }
+
+    unset($this->form_state['values'][$field_name]);
+
+    $input = array();
+
+    if (is_string($values)) {
+      // Values is a string, which means that it's single-valued.
+      $input[0] = array('value' => $values) + $defaults;
+    }
+    elseif (is_array($values)) {
+      // $values is an array. It can be an array of strings or array of arrays.
+      foreach ($values as $key => $val) {
+        if (is_string($val)) {
+          $input[$key] = array('value' => $val) + $defaults;
+        }
+        elseif (is_array($val)) {
+          $input[$key] = $val + $defaults;
+        }
+      }
+    }
+
+    $this->form_state['values'][$field_name][LANGUAGE_NONE] = $input;
+  }
 
   public function InlineEntityFormCancel(
     $field_name,
@@ -260,8 +342,10 @@ class Form {
 
   /**
    * This function is used to check the field access
+   *
    * @param $field_name
    *  This is field name
+   *
    * @return bool
    */
   public function isFieldAccessible($field_name) {
@@ -356,6 +440,7 @@ class Form {
 
   /**
    * This function is used for value in inline entity form field
+   *
    * @param $field_name
    *   This is name of field
    * @param $value
@@ -401,7 +486,13 @@ class Form {
    * @param string $end_time
    *   End time.
    */
-  function fillDateWidgetField($field_name, $start_date, $start_time, $end_date, $end_time) {
+  function fillDateWidgetField(
+    $field_name,
+    $start_date,
+    $start_time,
+    $end_date,
+    $end_time
+  ) {
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['show_date'] = 1;
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['value']['date'] = $start_date;
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['value']['time'] = $start_time;
@@ -411,6 +502,7 @@ class Form {
 
   /**
    * This function is used for purl field value
+   *
    * @param $field_name
    *   This is field name
    * @param $value
@@ -449,6 +541,7 @@ class Form {
 
   /**
    * This function is used for content type field values in vocabulary
+   *
    * @param $field_name
    *   This is name of field
    */
@@ -460,6 +553,7 @@ class Form {
 
   /**
    * This function is used for vocabulary machine name
+   *
    * @param  $value
    *   This is vocabulary machine name
    */
@@ -469,6 +563,7 @@ class Form {
 
   /**
    * This function is used for vocabulary id
+   *
    * @param  $value
    *   This is vocabulary id
    */
@@ -478,6 +573,7 @@ class Form {
 
   /**
    * This function is used for OG vocabulary field
+   *
    * @param $field_name
    *    Field Name
    * @param $vid
@@ -504,6 +600,7 @@ class Form {
 
   /**
    * This Function is for adding the Form in inline entity form
+   *
    * @param $field_name
    *   This is field name
    */
@@ -549,6 +646,7 @@ class Form {
 
   /**
    * This Function is for adding the form field value in ajax_post
+   *
    * @param $field_name
    *  This is parent node field
    * @param $field
@@ -624,10 +722,12 @@ class Form {
 
   /**
    * This Function is for adding the Form in inline entity form
+   *
    * @param $field_name
    *   This is field name
    * @param $type
    *   This is content type name
+   *
    * @return boolean
    */
   // Remove the form ID We can get using Current form
@@ -699,6 +799,22 @@ class Form {
     else {
 
       return FALSE;
+    }
+  }
+
+  public function __call($name, $arguments) {
+    if (strpos($name, 'fill') === 0) {
+      // Function name starts with "get".
+      $field_name = preg_replace(
+        '/(?<=\\w)(?=[A-Z])/',
+        "_$1",
+        substr($name, 3)
+      );
+      $field_name = strtolower($field_name);
+      $field = field_info_field($field_name);
+      if (is_null($field)) {
+        return;
+      }
     }
   }
 }

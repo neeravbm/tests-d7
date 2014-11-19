@@ -10,9 +10,7 @@ namespace tests\phpunit_tests\helper\forms;
 
 use tests\phpunit_tests\helper\entities as entities;
 
-class NodeForm extends Form {
-
-  private $nodeObject;
+class NodeForm extends EntityForm {
 
   /**
    * Default constructor of the node form.
@@ -27,11 +25,12 @@ class NodeForm extends Form {
     $class_fullname = "tests\\phpunit_tests\\helper\\entities\\" . substr($class_shortname, 0, -4);
 
     $type = drupal_strtolower(preg_replace('/(?<=\\w)(?=[A-Z])/', "_$1", substr($class_shortname, 0, -4)));
-    $this->nodeObject = new $class_fullname($nid);
+    $nodeObject = new $class_fullname($nid);
+    $this->setEntityObject($nodeObject);
 
-    if (!is_null($this->nodeObject->getNode())) {
+    if (!is_null($this->getEntityObject()->getEntity())) {
       module_load_include('inc', 'node', 'node.pages');
-      parent::__construct($type . '_node_form', $this->nodeObject->getNode());
+      parent::__construct($type . '_node_form', $this->getEntityObject()->getEntity());
     }
   }
 
@@ -69,14 +68,8 @@ class NodeForm extends Form {
   public function submit() {
     $this->fillValues(array('op' => t('Save')));
     module_load_include('inc', 'node', 'node.pages');
-    $output = parent::submit($this->nodeObject->getNode());
-    if (is_array($output)) {
-      // There was an error.
-      return $output;
-    }
-    else {
-      $form_state = $this->getFormState();
-      return $form_state['nid'];
-    }
+    $output = parent::submit($this->getEntityObject()->getEntity());
+    $this->getEntityObject()->reload();
+    return $output;
   }
 }

@@ -23,7 +23,7 @@ class Node extends Entity {
     if (!is_null($nid) && is_numeric($nid)) {
       $node = node_load($nid);
       if ($node->type == $type) {
-        $this->setEntity($node);
+        parent::__construct($node);
       }
     }
     else {
@@ -34,45 +34,7 @@ class Node extends Entity {
         'is_new' => TRUE,
       );
       node_object_prepare($node);
-      $this->setEntity($node);
-    }
-
-    return $this->getEntity();
-  }
-
-  /**
-   * Returns the node.
-   *
-   * @return object node
-   *   Node object.
-   */
-  public function getNode() {
-    return $this->getEntity();
-  }
-
-  /**
-   * Returns content type.
-   *
-   * @return string $type
-   *   Content type.
-   */
-  public function getType() {
-    return $this->getEntity()->type;
-  }
-
-
-  public function __call($name, $arguments) {
-    if (strpos($name, 'get') === 0) {
-      // Function name starts with "get".
-      /*$field_name = preg_replace('/(?<=\\w)(?=[A-Z])/',"_$1", substr($name, 3));
-      $field_name = strtolower($field_name);
-      $field = field_info_field($field_name);
-      $class = get_called_class();
-      $type = $class::TYPE;
-      $instance = field_info_instance('node', $field_name, $type);
-      $widget = $instance['widget']['type'];
-      $function = "get" . str_replace(" ", "", ucwords(str_replace("_", " ", $widget)));
-      $values = self::$function($field_name);*/
+      parent::__construct($node);
     }
   }
 }
