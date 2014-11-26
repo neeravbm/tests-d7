@@ -6,9 +6,8 @@
  * Time: 6:00 PM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\core\forms;
 
-require_once 'Form.php';
 
 class TaxonomyFormVocabulary extends Form {
   function __construct() {

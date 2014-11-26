@@ -93,11 +93,9 @@ class ArticleWorkflowAdministratorUserTest extends \PHPUnit_Framework_TestCase {
    * Delete the node object from the database.
    */
   public static function tearDownAfterClass() {
-    if (!is_object(self::$nodeObject)) {
-      return;
+    if (is_object(self::$nodeObject)) {
+      node_delete(self::$nodeObject->getId());
     }
-
-    node_delete(self::$nodeObject->getId());
 
     self::$userObject->logout();
   }

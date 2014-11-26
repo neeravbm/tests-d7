@@ -6,9 +6,10 @@
  * Time: 6:00 PM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\core\forms;
 
-final class UserRegisterForm extends Form {
+
+class UserRegisterForm extends Form {
 
   /**
    * Default UserRegisterForm constructor. If you need to disable modules such as captcha, recaptcha, honeypot, mollom, etc., do it here.

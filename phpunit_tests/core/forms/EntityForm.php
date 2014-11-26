@@ -6,7 +6,9 @@
  * Time: 11:44 PM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\core\forms;
+
+use tests\phpunit_tests\core\Utilities as Utilities;
 
 class EntityForm extends Form {
 
@@ -23,8 +25,7 @@ class EntityForm extends Form {
   public function __call($name, $arguments) {
     if (strpos($name, 'fill') === 0) {
       // Function name starts with "fill".
-      $field_name = preg_replace('/(?<=\\w)(?=[A-Z])/',"_$1", substr($name, 4));
-      $field_name = strtolower($field_name);
+      $field_name = Utilities::convertTitleCaseToUnderscore(substr($name, 4));
       $field = field_info_field($field_name);
       $is_property = FALSE;
       if (is_null($field)) {
@@ -39,7 +40,7 @@ class EntityForm extends Form {
         else {
           // Get the field instance value here.
           $widget = $instance['widget']['type'];
-          $function = "fill" . str_replace(" ", "", ucwords(str_replace("_", " ", $widget)));
+          $function = 'fill' . Utilities::convertUnderscoreToTitleCase($widget);
           call_user_func_array(array($this, $function), array_merge(array($field_name), $arguments));
         }
       }

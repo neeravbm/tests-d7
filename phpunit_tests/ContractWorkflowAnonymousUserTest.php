@@ -77,10 +77,8 @@ class ContractWorkflowAnonymousUserTest extends \PHPUnit_Framework_TestCase {
    * Delete the node object from the database.
    */
   public static function tearDownAfterClass() {
-    if (!is_object(self::$contractObject)) {
-      return;
+    if (is_object(self::$contractObject)) {
+      self::$contractObject->delete();
     }
-
-    self::$contractObject->delete();
   }
 }

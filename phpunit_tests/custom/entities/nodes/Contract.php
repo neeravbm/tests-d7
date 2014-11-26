@@ -6,7 +6,9 @@
  * Time: 8:20 PM
  */
 
-namespace tests\phpunit_tests\helper\entities;
+namespace tests\phpunit_tests\custom\entities\nodes;
+
+use tests\phpunit_tests\core\entities\Node as Node;
 
 /**
  * Class Contract

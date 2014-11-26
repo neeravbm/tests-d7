@@ -6,7 +6,9 @@
  * Time: 4:00 PM
  */
 
-namespace tests\phpunit_tests\helper\entities;
+namespace tests\phpunit_tests\core\entities;
+
+use tests\phpunit_tests\core\Utilities as Utilities;
 
 class Node extends Entity {
 
@@ -18,8 +20,8 @@ class Node extends Entity {
    */
   protected function __construct($nid = NULL) {
     $class = new \ReflectionClass(get_called_class());
-    $type = drupal_strtolower($class->getShortName());
 
+    $type = Utilities::convertTitleCaseToUnderscore($class->getShortName());
     if (!is_null($nid) && is_numeric($nid)) {
       $node = node_load($nid);
       if ($node->type == $type) {

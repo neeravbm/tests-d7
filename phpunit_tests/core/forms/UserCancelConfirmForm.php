@@ -6,7 +6,8 @@
  * Time: 6:22 PM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\core\forms;
+
 
 class UserCancelConfirmForm extends Form {
 

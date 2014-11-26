@@ -6,8 +6,10 @@
  * Time: 9:33 PM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\core\forms;
 
+
+use tests\phpunit_tests\core\Utilities;
 
 class Form {
 
@@ -71,10 +73,14 @@ class Form {
     $args = func_get_args();
     $this->form_state['build_info']['args'] = $args;
     $this->form_state['programmed_bypass_access_check'] = FALSE;
+    // Add more field button sets $form_state['rebuild'] to TRUE because of
+    // which submit handlers are not called. Hence we set it back to FALSE.
+    $this->form_state['rebuild'] = FALSE;
     $this->clearErrors();
     drupal_form_submit($this->form_id, $this->form_state);
     if ($errors = form_get_errors()) {
       $this->errors = $errors;
+
       return FALSE;
     }
 
@@ -101,6 +107,10 @@ class Form {
    */
   public function emptyField($field_name) {
     unset($this->form_state['values'][$field_name]);
+  }
+
+  protected function getValues($field_name) {
+    return !empty($this->form_state['values'][$field_name]) ? $this->form_state['values'][$field_name] : NULL;
   }
 
   /**
@@ -196,7 +206,7 @@ class Form {
    *   Field name.
    * @param string|array $values
    *   Either a string or an array. If it's a string, then it is assumed that
-   *   the field is single-valued. If it is an array of strings, then it is
+   *   the field has only one value. If it is an array of strings, then it is
    *   assumed that the field is multi-valued and the strings in the array
    *   correspond to multiple text values of this field. If it is an array of
    *   arrays, then it is assumed that the field is multi-valued and the inside
@@ -223,7 +233,7 @@ class Form {
    *   Text format. If $values doesn't specify text format explicitly, then
    *   this parameter is used as a default.
    */
-  public function fillTextTextareaWithSummary (
+  public function fillTextTextareaWithSummary(
     $field_name,
     $values,
     $summary = '',
@@ -258,6 +268,102 @@ class Form {
     }
 
     $this->form_state['values'][$field_name][LANGUAGE_NONE] = $input;
+  }
+
+  /**
+   * Fill Simple Hierarchical Select Taxonomy TaxonomyTerm Reference field.
+   *
+   * @param string $field_name
+   *   Field name.
+   *
+   * @param int|array $values
+   *   Either a integer or an array of integers. Integer corresponds to the
+   *   term id. If it's an integer, then it is assumed that the field has only
+   *   one value. If it is an array of integers, then it is assumed that the
+   *   field has multiple values. Here are a few examples this parameter can
+   *   take:
+   *   "25", or
+   *   array(
+   *     25,
+   *     32
+   *   );
+   */
+  public function fillTaxonomyShs($field_name, $values) {
+    unset($this->form_state['values'][$field_name]);
+
+    $input = array();
+    if (is_string($values)) {
+      $input[0] = array(
+        'tid' => $values,
+        '_weight' => 0,
+      );
+    }
+    elseif (is_array($values)) {
+      foreach ($values as $key => $val) {
+        $input[$key] = array(
+          'tid' => $val,
+          '_weight' => $key,
+        );
+      }
+    }
+    //$input['add_more'] = t("Add another item");
+
+    /*$this->form_state['input'] = $this->form_state['values'];
+    $this->form_state['input'][$field_name][LANGUAGE_NONE] = $input;
+    $this->form_state['input']['form_build_id'] = $this->form['#build_id'];
+    $this->form_state['input']['form_id'] = $this->form['#form_id'];
+    $this->form_state['input']['form_token'] = $this->form['form_token']['#default_value'];
+    $this->form_state['input']['_triggering_element_name'] = 'field_contracting_family_add_more';
+    $this->form_state['input']['_triggering_element_value'] = 'Add another item';
+    $this->form_state['no_redirect'] = TRUE;
+    $this->form_state['method'] = 'post';
+    $this->form_state['programmed'] = TRUE;*/
+
+    $this->form_state = form_state_defaults();
+    // Get the form from the cache.
+    $this->form = form_get_cache($this->form['#build_id'], $this->form_state);
+    $unprocessed_form = $this->form;
+    $this->form_state['input'] = $this->form_state['values'];
+    $this->form_state['input'][$field_name][LANGUAGE_NONE] = $input;
+    $this->form_state['input']['form_build_id'] = $this->form['#build_id'];
+    $this->form_state['input']['form_id'] = $this->form['#form_id'];
+    $this->form_state['input']['form_token'] = $this->form['form_token']['#default_value'];
+    $this->form_state['input']['_triggering_element_name'] = $field_name . '_add_more';
+    $this->form_state['input']['_triggering_element_value'] = 'Add another item';
+    $this->form_state['no_redirect'] = TRUE;
+    $this->form_state['method'] = 'post';
+    $this->form_state['programmed'] = TRUE;
+
+    drupal_process_form(
+      $this->form['#form_id'],
+      $this->form,
+      $this->form_state
+    );
+
+    // Rebuild the form and set it in cache. This is the code at the end of
+    // drupal_process_form() after above code boils out at
+    // $form_state['programmed'] = TRUE.
+    $this->form = drupal_rebuild_form(
+      $this->form['#form_id'],
+      $this->form_state,
+      $this->form
+    );
+    if (!$this->form_state['rebuild'] && $this->form_state['cache'] && empty($this->form_state['no_cache'])) {
+      form_set_cache(
+        $this->form['#build_id'],
+        $unprocessed_form,
+        $this->form_state
+      );
+    }
+    /*$_POST['field_contracting_family'][LANGUAGE_NONE] = $input;
+    $_POST['form_build_id'] = $this->form['#build_id'];
+    $_POST['form_token'] = $this->form['form_token']['#default_value'];
+    $_POST['form_id'] = $this->form['#form_id'];
+    $_POST['_triggering_element_name'] = 'field_contracting_family_add_more';
+    $_POST['_triggering_element_value'] = 'Add another item';
+    $sub_form = ajax_form_callback();
+    unset($_POST);*/
+
   }
 
   public function InlineEntityFormCancel(
@@ -299,21 +405,23 @@ class Form {
     }
   }
 
-
   /**
-   * Upload images.
+   * Fill generic file. Upload images.
    *
    * @param string $field_name
    *   Field name.
    * @param mixed $image_paths
    *   A path or an array of paths of images which are to be uploaded.
    */
-  public function uploadImages($field_name, $image_paths) {
+  public function fillFileGeneric($field_name, $image_paths) {
+    unset($this->form_state['values'][$field_name]);
+
     if (is_string($image_paths)) {
       $image_paths = array($image_paths);
     }
 
     $index = 0;
+    $input = array();
     foreach ($image_paths as $image_path) {
       $filename = drupal_basename($image_path);
       $full_image_path = 'tests/assets/' . $image_path;
@@ -327,16 +435,82 @@ class Form {
       $file_temp->status = 0;
       file_save($file_temp);
 
-      $image_info = image_get_info($file_temp->uri);
+      $input[$index] = array(
+        'fid' => $file_temp->fid,
+        'display' => 1,
+      );
+      /*$this->form_state['values'][$field_name][LANGUAGE_NONE][$index] = array(
+        'fid' => $file_temp->fid,
+        'display' => 1,
+      );*/
+
+      /*$image_info = image_get_info($file_temp->uri);
       $this->form_state['values'][$field_name][LANGUAGE_NONE][$index] = array(
         'alt' => '',
         'fid' => $file_temp->fid,
         'display' => 1,
         'width' => $image_info['width'],
         'height' => $image_info['height'],
-      );
+      );*/
 
       $index++;
+    }
+
+    $this->form_state = form_state_defaults();
+    // Get the form from the cache.
+    $this->form = form_get_cache($this->form['#build_id'], $this->form_state);
+    $unprocessed_form = $this->form;
+    $this->form_state['input'] = $this->form_state['values'];
+    $this->form_state['input'][$field_name][LANGUAGE_NONE] = $input;
+    $this->form_state['input']['form_build_id'] = $this->form['#build_id'];
+    $this->form_state['input']['form_id'] = $this->form['#form_id'];
+    $this->form_state['input']['form_token'] = $this->form['form_token']['#default_value'];
+    $this->form_state['input']['_triggering_element_name'] = $field_name . '_und_' . (sizeof(
+          $input
+        ) - 1) . '_upload_button';
+    $this->form_state['input']['_triggering_element_value'] = 'Upload';
+    $this->form_state['no_redirect'] = TRUE;
+    $this->form_state['method'] = 'post';
+    $this->form_state['programmed'] = TRUE;
+    $_FILES['files'] = array(
+      'name' => array(
+        'field_contract_files_und_0' => 'Continuous Delivery.pdf',
+      ),
+      'type' => array(
+        'field_contract_files_und_0' => 'application / pdf',
+      ),
+      'tmp_name' => array(
+        //'field_contract_files_und_0' => '/private/var/tmp / php7uhiOH',
+        'field_contract_files_und_0' => $file_temp->uri,
+      ),
+      'error' => array(
+        'field_contract_files_und_0' => 0,
+      ),
+      'size' => array(
+        'field_contract_files_und_0' => 173988,
+      ),
+    );
+
+    drupal_process_form(
+      $this->form['#form_id'],
+      $this->form,
+      $this->form_state
+    );
+
+    // Rebuild the form and set it in cache. This is the code at the end of
+    // drupal_process_form() after above code boils out at
+    // $form_state['programmed'] = TRUE.
+    $this->form = drupal_rebuild_form(
+      $this->form['#form_id'],
+      $this->form_state,
+      $this->form
+    );
+    if (!$this->form_state['rebuild'] && $this->form_state['cache'] && empty($this->form_state['no_cache'])) {
+      form_set_cache(
+        $this->form['#build_id'],
+        $unprocessed_form,
+        $this->form_state
+      );
     }
   }
 
@@ -805,12 +979,7 @@ class Form {
   public function __call($name, $arguments) {
     if (strpos($name, 'fill') === 0) {
       // Function name starts with "get".
-      $field_name = preg_replace(
-        '/(?<=\\w)(?=[A-Z])/',
-        "_$1",
-        substr($name, 3)
-      );
-      $field_name = strtolower($field_name);
+      $field_name = Utilities::convertTitleCaseToUnderscore(substr($name, 3));
       $field = field_info_field($field_name);
       if (is_null($field)) {
         return;

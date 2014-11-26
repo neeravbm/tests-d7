@@ -6,9 +6,10 @@
  * Time: 5:27 PM
  */
 
-namespace tests\phpunit_tests\helper\entities;
+namespace tests\phpunit_tests\core\entities;
 
-use tests\phpunit_tests\helper\forms as forms;
+use tests\phpunit_tests\core\forms as forms;
+
 
 class User extends Entity {
 
@@ -113,16 +114,6 @@ class User extends Entity {
    */
   public function getEmailAddress() {
     return $this->getEntity()->mail;
-  }
-
-  /**
-   * Returns the account object.
-   *
-   * @return object $account
-   *   Account object.
-   */
-  public function getUser() {
-    return $this->getEntity();
   }
 
   /**

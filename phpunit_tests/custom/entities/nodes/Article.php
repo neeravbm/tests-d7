@@ -6,9 +6,9 @@
  * Time: 11:37 AM
  */
 
-namespace tests\phpunit_tests\helper\entities;
+namespace tests\phpunit_tests\custom\entities\nodes;
 
-use tests\phpunit_tests\helper\forms as forms;
+use tests\phpunit_tests\core\entities\Node as Node;
 
 class Article extends Node {
 

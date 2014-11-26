@@ -6,9 +6,9 @@
  * Time: 4:58 PM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\core\forms;
 
-use tests\phpunit_tests\helper\entities as entities;
+use tests\phpunit_tests\core\Utilities as Utilities;
 
 class NodeForm extends EntityForm {
 
@@ -22,9 +22,9 @@ class NodeForm extends EntityForm {
     $classname = get_called_class();
     $class = new \ReflectionClass($classname);
     $class_shortname = $class->getShortName();
-    $class_fullname = "tests\\phpunit_tests\\helper\\entities\\" . substr($class_shortname, 0, -4);
+    $class_fullname = "tests\\phpunit_tests\\custom\\entities\\nodes\\" . substr($class_shortname, 0, -4);
 
-    $type = drupal_strtolower(preg_replace('/(?<=\\w)(?=[A-Z])/', "_$1", substr($class_shortname, 0, -4)));
+    $type = Utilities::convertTitleCaseToUnderscore(substr($class_shortname, 0, -4));
     $nodeObject = new $class_fullname($nid);
     $this->setEntityObject($nodeObject);
 
@@ -33,20 +33,6 @@ class NodeForm extends EntityForm {
       parent::__construct($type . '_node_form', $this->getEntityObject()->getEntity());
     }
   }
-
-  /**
-   * Loads the appropriate class file based on the type.
-   *
-   * @param string $type
-   *   Content type.
-   *
-   * @return string $class
-   *   Name of the class that was loaded.
-   */
-  /*private function getClassByType($type) {
-    $class = str_replace(" ", "", ucwords(str_replace("_", " ", $type)));
-    return "tests\\phpunit_tests\\helper\\entities\\" . $class;
-  }*/
 
   /**
    * Set author name.
@@ -63,13 +49,24 @@ class NodeForm extends EntityForm {
   }
 
   /**
-   * This function is used for node form submit
+   * This function is used for node form submit.
    */
   public function submit() {
     $this->fillValues(array('op' => t('Save')));
     module_load_include('inc', 'node', 'node.pages');
     $output = parent::submit($this->getEntityObject()->getEntity());
-    $this->getEntityObject()->reload();
+
+    if ($output) {
+      // Get the node from form_state.
+      $form_state = $this->getFormState();
+      $node = $form_state['node'];
+      $type = $node->type;
+      $classname = Utilities::convertUnderscoreToTitleCase($type);
+      $class_fullname = "tests\\phpunit_tests\\custom\\entities\\nodes\\" . $classname;
+      $nodeObject = new $class_fullname($node->nid);
+      $this->setEntityObject($nodeObject);
+    }
+
     return $output;
   }
 }

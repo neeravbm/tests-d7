@@ -6,13 +6,13 @@
  * Time: 11:37 AM
  */
 
-namespace tests\phpunit_tests\helper\forms;
+namespace tests\phpunit_tests\custom\forms\entities\nodes;
 
-use tests\phpunit_tests\helper\entities as entities;
+use tests\phpunit_tests\core\forms\NodeForm as NodeForm;
 
 class ArticleForm extends NodeForm {
 
   public function __construct($nid = NULL) {
     parent::__construct($nid);
   }
-} 
+}
