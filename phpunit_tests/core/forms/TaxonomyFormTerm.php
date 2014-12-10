@@ -18,16 +18,21 @@ class TaxonomyFormTerm extends EntityForm {
     $classname = get_called_class();
     $class = new \ReflectionClass($classname);
     $class_shortname = $class->getShortName();
-    $vocabulary_name = Utilities::convertTitleCaseToUnderscore(substr($class_shortname, 0, -4));
+    $vocabulary_name = Utilities::convertTitleCaseToUnderscore(
+      substr($class_shortname, 0, -4)
+    );
 
     if (!is_null($tid) && is_numeric($tid)) {
       // Tid is not null and is numeric.
       $term = taxonomy_term_load($tid);
       if ($term->vocabulary_machine_name == $vocabulary_name) {
-        $this->vocabulary = taxonomy_vocabulary_machine_name_load($vocabulary_name);
+        $this->vocabulary = taxonomy_vocabulary_machine_name_load(
+          $vocabulary_name
+        );
         $this->setEntityObject($term);
         module_load_include('inc', 'taxonomy', 'taxonomy.admin');
         parent::__construct('taxonomy_form_term', $term, $this->vocabulary);
+
         return;
       }
       else {
@@ -40,6 +45,33 @@ class TaxonomyFormTerm extends EntityForm {
     $this->vocabulary = taxonomy_vocabulary_machine_name_load($vocabulary_name);
     module_load_include('inc', 'taxonomy', 'taxonomy.admin');
     parent::__construct('taxonomy_form_term', array(), $this->vocabulary);
+  }
+
+  /**
+   * Fill form with default values. These default values are what you define in
+   * this function and are different from Drupal's default values for the
+   * fields.
+   *
+   * @param array $entities
+   *   An array of entities passed by reference.
+   * @param array $skip
+   *   An array of field or property names that should not be filled with
+   *   default values.
+   *
+   * @return array
+   *   An array consisting of three values: TRUE (which means that the function
+   *   executed without any error), an array of fields which were modified and
+   *   an empty message.
+   */
+  public function fillDefaultValues(&$entities, $skip = array()) {
+    $fields = array();
+    if (!in_array('name', $skip)) {
+      $name = Utilities::getRandomString();
+      $this->fillName($name);
+      $fields['name'] = $name;
+    }
+
+    return array(TRUE, $fields, "");
   }
 
   /**
@@ -58,12 +90,17 @@ class TaxonomyFormTerm extends EntityForm {
     $classname = get_called_class();
     $class = new \ReflectionClass($classname);
     $class_shortname = $class->getShortName();
-    $class_fullname = "tests\\phpunit_tests\\custom\\entities\\terms\\" . substr($class_shortname, 0, -4);
+    $class_fullname = "tests\\phpunit_tests\\custom\\entities\\taxonomy_term\\" . substr(
+        $class_shortname,
+        0,
+        -4
+      );
 
     $form_state = $this->getFormState();
     $termObject = new $class_fullname($form_state['term']->tid);
     $this->setEntityObject($termObject);
     $this->getEntityObject()->reload();
+
     return $output;
   }
 

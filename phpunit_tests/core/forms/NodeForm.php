@@ -22,15 +22,24 @@ class NodeForm extends EntityForm {
     $classname = get_called_class();
     $class = new \ReflectionClass($classname);
     $class_shortname = $class->getShortName();
-    $class_fullname = "tests\\phpunit_tests\\custom\\entities\\nodes\\" . substr($class_shortname, 0, -4);
+    $class_fullname = "tests\\phpunit_tests\\custom\\entities\\node\\" . substr(
+        $class_shortname,
+        0,
+        -4
+      );
 
-    $type = Utilities::convertTitleCaseToUnderscore(substr($class_shortname, 0, -4));
+    $type = Utilities::convertTitleCaseToUnderscore(
+      substr($class_shortname, 0, -4)
+    );
     $nodeObject = new $class_fullname($nid);
     $this->setEntityObject($nodeObject);
 
     if (!is_null($this->getEntityObject()->getEntity())) {
       module_load_include('inc', 'node', 'node.pages');
-      parent::__construct($type . '_node_form', $this->getEntityObject()->getEntity());
+      parent::__construct(
+        $type . '_node_form',
+        $this->getEntityObject()->getEntity()
+      );
     }
   }
 
@@ -53,6 +62,10 @@ class NodeForm extends EntityForm {
    */
   public function submit() {
     $this->fillValues(array('op' => t('Save')));
+    $this->removeKey('triggering_element');
+    $this->removeKey('validate_handlers');
+    $this->removeKey('submit_handlers');
+    $this->removeKey('clicked_button');
     module_load_include('inc', 'node', 'node.pages');
     $output = parent::submit($this->getEntityObject()->getEntity());
 
@@ -62,11 +75,28 @@ class NodeForm extends EntityForm {
       $node = $form_state['node'];
       $type = $node->type;
       $classname = Utilities::convertUnderscoreToTitleCase($type);
-      $class_fullname = "tests\\phpunit_tests\\custom\\entities\\nodes\\" . $classname;
+      $class_fullname = "tests\\phpunit_tests\\custom\\entities\\node\\" . $classname;
       $nodeObject = new $class_fullname($node->nid);
       $this->setEntityObject($nodeObject);
     }
 
     return $output;
+  }
+
+  /**
+   * Fill form with default values. These default values are what you define in
+   * this function and are different from Drupal's default values for the
+   * fields.
+   *
+   * @param array $entities
+   *   An array of entities passed by reference.
+   * @param array $skip
+   *   An array of field or property names that should not be filled with
+   *   default values.
+   */
+  public function fillDefaultValues(&$entities, $skip = array()) {
+    if (!in_array('title', $skip)) {
+      $this->fillTitle(Utilities::getRandomString());
+    }
   }
 }

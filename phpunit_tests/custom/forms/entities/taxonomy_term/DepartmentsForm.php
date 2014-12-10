@@ -6,11 +6,11 @@
  * Time: 9:45 PM
  */
 
-namespace tests\phpunit_tests\custom\forms\entities\terms;
+namespace tests\phpunit_tests\custom\forms\entities\taxonomy_term;
 
 use tests\phpunit_tests\core\forms\TaxonomyFormTerm as TaxonomyFormTerm;
 
-class ContractedFamilyForm extends TaxonomyFormTerm {
+class DepartmentsForm extends TaxonomyFormTerm {
 
   /**
    * Default constructor.

@@ -10,7 +10,7 @@ namespace tests\phpunit_tests\core\forms;
 
 use tests\phpunit_tests\core\Utilities as Utilities;
 
-class EntityForm extends Form {
+abstract class EntityForm extends Form {
 
   private $entityObject;
 
@@ -50,4 +50,6 @@ class EntityForm extends Form {
       }
     }
   }
+
+  public abstract function fillDefaultValues(&$entities, $skip = array());
 }

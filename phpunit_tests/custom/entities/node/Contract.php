@@ -6,7 +6,7 @@
  * Time: 8:20 PM
  */
 
-namespace tests\phpunit_tests\custom\entities\nodes;
+namespace tests\phpunit_tests\custom\entities\node;
 
 use tests\phpunit_tests\core\entities\Node as Node;
 

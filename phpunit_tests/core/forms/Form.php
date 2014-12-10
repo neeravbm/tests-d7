@@ -59,8 +59,24 @@ class Form {
     return $this->errors;
   }
 
-  public function clearErrors() {
-    unset($this->errors);
+  /**
+   * Clear errors from a form.
+   *
+   * @param null|string $name
+   *   Element name whose error needs to be cleared. If no element name is
+   *   provided, then all errors are cleared.
+   */
+  public function clearErrors($name = NULL) {
+    if (is_null($name)) {
+      form_clear_error();
+      unset($this->errors);
+    }
+    else {
+      $this->errors = &drupal_static('form_set_error', array());
+      if (isset($this->errors[$name])) {
+        unset($this->errors[$name]);
+      }
+    }
   }
 
   /**
@@ -73,9 +89,11 @@ class Form {
     $args = func_get_args();
     $this->form_state['build_info']['args'] = $args;
     $this->form_state['programmed_bypass_access_check'] = FALSE;
+    $this->form_state['values']['form_build_id'] = $this->form['#build_id'];
     // Add more field button sets $form_state['rebuild'] to TRUE because of
     // which submit handlers are not called. Hence we set it back to FALSE.
     $this->form_state['rebuild'] = FALSE;
+    $this->removeKey('input');
     $this->clearErrors();
     drupal_form_submit($this->form_id, $this->form_state);
     if ($errors = form_get_errors()) {
@@ -97,6 +115,16 @@ class Form {
     foreach ($values as $key => $value) {
       $this->form_state['values'][$key] = $value;
     }
+  }
+
+  /**
+   * Remove a key from form_state.
+   *
+   * @param string $key
+   *   Key string.
+   */
+  protected function removeKey($key) {
+    unset($this->form_state[$key]);
   }
 
   /**
@@ -439,40 +467,84 @@ class Form {
         'fid' => $file_temp->fid,
         'display' => 1,
       );
-      /*$this->form_state['values'][$field_name][LANGUAGE_NONE][$index] = array(
-        'fid' => $file_temp->fid,
-        'display' => 1,
-      );*/
 
-      /*$image_info = image_get_info($file_temp->uri);
-      $this->form_state['values'][$field_name][LANGUAGE_NONE][$index] = array(
-        'alt' => '',
-        'fid' => $file_temp->fid,
-        'display' => 1,
-        'width' => $image_info['width'],
-        'height' => $image_info['height'],
-      );*/
+      $old_form_state_values = !empty($this->form_state['values']) ? $this->form_state['values'] : array();
+      $this->form_state = form_state_defaults();
+      // Get the form from the cache.
+      $this->form = form_get_cache($this->form['#build_id'], $this->form_state);
+      $unprocessed_form = $this->form;
+      $this->form_state['input'] = $old_form_state_values;
+      $this->form_state['input'][$field_name][LANGUAGE_NONE] = $input;
+      $this->form_state['input']['form_build_id'] = $this->form['#build_id'];
+      $this->form_state['input']['form_id'] = $this->form['#form_id'];
+      $this->form_state['input']['form_token'] = $this->form['form_token']['#default_value'];
+      $button_name = $field_name . '_' . LANGUAGE_NONE . '_' . (sizeof(
+            $input
+          ) - 1) . '_upload_button';
+      //$button_name = $field_name . '_' . LANGUAGE_NONE . '_0_upload_button';
+      $this->form_state['input']['_triggering_element_name'] = $button_name;
+      $this->form_state['input']['_triggering_element_value'] = 'Upload';
+      $this->form_state['no_redirect'] = TRUE;
+      $this->form_state['method'] = 'post';
+      $this->form_state['programmed'] = TRUE;
+
+      drupal_process_form(
+        $this->form['#form_id'],
+        $this->form,
+        $this->form_state
+      );
+
+      // Rebuild the form and set it in cache. This is the code at the end of
+      // drupal_process_form() after above code boils out at
+      // $form_state['programmed'] = TRUE.
+      // Set $form_state['programmed'] = FALSE so that Line 504 on file.field.inc can add a default value at the end. Otherwise multi-valued submit fails.
+      $this->form_state['programmed'] = FALSE;
+      $this->form = drupal_rebuild_form(
+        $this->form['#form_id'],
+        $this->form_state,
+        $this->form
+      );
+      if (!$this->form_state['rebuild'] && $this->form_state['cache'] && empty($this->form_state['no_cache'])) {
+        form_set_cache(
+          $this->form['#build_id'],
+          $unprocessed_form,
+          $this->form_state
+        );
+      }
+
+      unset($this->form_state['values'][$button_name]);
+
+      //$_GET['q'] = 'file/ajax/field_contract_files/und/' . $this->form['#build_id'];
+      /*$_POST = $this->form_state['values'];
+      $_POST[$field_name][$index] = $input[$index];
+      $_POST['form_build_id'] = $this->form['#build_id'];
+      $_POST['form_token'] = $this->form['form_token']['#default_value'];
+      $_POST['form_id'] = $this->form['#form_id'];*/
+
+      /*list($form, $form_state, $form_id, $form_build_id, $commands) = ajax_get_form();
+      // Get the current element and count the number of files.
+      $current_element = $form;
+      foreach ($form_parents as $parent) {
+        $current_element = $current_element[$parent];
+      }
+      $current_file_count = isset($current_element['#file_upload_delta']) ? $current_element['#file_upload_delta'] : 0;
+
+      // Process user input. $form and $form_state are modified in the process.
+      drupal_process_form($form['#form_id'], $form, $form_state);*/
+      /*$commands = file_ajax_upload(
+        'file',
+        'ajax',
+        $field_name,
+        LANGUAGE_NONE,
+        $this->form['#build_id']
+      );
+      unset($_POST);*/
 
       $index++;
     }
 
-    $this->form_state = form_state_defaults();
-    // Get the form from the cache.
-    $this->form = form_get_cache($this->form['#build_id'], $this->form_state);
-    $unprocessed_form = $this->form;
-    $this->form_state['input'] = $this->form_state['values'];
-    $this->form_state['input'][$field_name][LANGUAGE_NONE] = $input;
-    $this->form_state['input']['form_build_id'] = $this->form['#build_id'];
-    $this->form_state['input']['form_id'] = $this->form['#form_id'];
-    $this->form_state['input']['form_token'] = $this->form['form_token']['#default_value'];
-    $this->form_state['input']['_triggering_element_name'] = $field_name . '_und_' . (sizeof(
-          $input
-        ) - 1) . '_upload_button';
-    $this->form_state['input']['_triggering_element_value'] = 'Upload';
-    $this->form_state['no_redirect'] = TRUE;
-    $this->form_state['method'] = 'post';
-    $this->form_state['programmed'] = TRUE;
-    $_FILES['files'] = array(
+
+    /*$_FILES['files'] = array(
       'name' => array(
         'field_contract_files_und_0' => 'Continuous Delivery.pdf',
       ),
@@ -489,29 +561,9 @@ class Form {
       'size' => array(
         'field_contract_files_und_0' => 173988,
       ),
-    );
+    );*/
 
-    drupal_process_form(
-      $this->form['#form_id'],
-      $this->form,
-      $this->form_state
-    );
 
-    // Rebuild the form and set it in cache. This is the code at the end of
-    // drupal_process_form() after above code boils out at
-    // $form_state['programmed'] = TRUE.
-    $this->form = drupal_rebuild_form(
-      $this->form['#form_id'],
-      $this->form_state,
-      $this->form
-    );
-    if (!$this->form_state['rebuild'] && $this->form_state['cache'] && empty($this->form_state['no_cache'])) {
-      form_set_cache(
-        $this->form['#build_id'],
-        $unprocessed_form,
-        $this->form_state
-      );
-    }
   }
 
   /**
@@ -551,6 +603,90 @@ class Form {
     }
   }
 
+  public function fillTaxonomyAutocomplete($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $this->form_state['values'][$field_name][LANGUAGE_NONE] = implode(
+      ",",
+      $values
+    );
+  }
+
+  public function fillTermReferenceTree($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $index = 0;
+    foreach ($values as $value) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE][$index]['tid'] = $value;
+      $index++;
+    }
+  }
+
+  public function fillAutocompleteDeluxeTaxonomy($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $this->form_state['values'][$field_name][LANGUAGE_NONE] = array(
+      'textfield' => '',
+      'value_field' => '""' . implode('"" ""', $values) . '""',
+    );
+  }
+
+  public function fillOptionsOnoff($field_name, $value) {
+    if ($value) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE] = $value;
+    }
+  }
+
+  public function fillOptionsSelect($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $field = field_info_field($field_name);
+    if ($field['cardinality'] == 1) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE] = implode(
+        ",",
+        $values
+      );
+    }
+    else {
+      $index = 0;
+      foreach ($values as $value) {
+        $this->form_state['values'][$field_name][LANGUAGE_NONE][$index] = $value;
+        $index++;
+      }
+    }
+  }
+
+  public function fillTextTextfield($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $index = 0;
+    foreach ($values as $value) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE][$index]['value'] = $value;
+      $index++;
+    }
+  }
+
+  public function fillDatePopup($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $index = 0;
+    foreach ($values as $value) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE][$index]['value']['date'] = $value;
+    }
+  }
+
   /**
    * Fill entity reference field.
    *
@@ -560,6 +696,18 @@ class Form {
    *   A single entity id or an array of entity ids.
    */
   public function fillEntityreferenceField($field_name, $values) {
+    if (is_string($values)) {
+      $values = array($values);
+    }
+
+    $index = 0;
+    foreach ($values as $value) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE][$index]['target_id'] = $value;
+      $index++;
+    }
+  }
+
+  public function fillEntityreferenceViewWidget($field_name, $values) {
     if (is_string($values)) {
       $values = array($values);
     }

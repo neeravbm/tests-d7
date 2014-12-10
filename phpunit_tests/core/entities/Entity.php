@@ -9,6 +9,7 @@
 namespace tests\phpunit_tests\core\entities;
 
 use tests\phpunit_tests\core\Utilities as Utilities;
+use tests\phpunit_tests\custom\forms as CustomForms;
 
 /**
  * Class Entity
@@ -73,7 +74,9 @@ abstract class Entity {
       $classnames = array_values($classes);
       $classname = $classnames[sizeof($classes) - 2];
       $class = new \ReflectionClass($classname);
-      $entity_type = Utilities::convertTitleCaseToUnderscore($class->getShortName());
+      $entity_type = Utilities::convertTitleCaseToUnderscore(
+        $class->getShortName()
+      );
 
       return $entity_type;
     }
@@ -81,7 +84,9 @@ abstract class Entity {
       // If an entity such as User is calling the class directly, then entity type will be User itself.
       $classname = get_called_class();
       $class = new \ReflectionClass($classname);
-      $entity_type = Utilities::convertTitleCaseToUnderscore($class->getShortName());
+      $entity_type = Utilities::convertTitleCaseToUnderscore(
+        $class->getShortName()
+      );
 
       return $entity_type;
     }
@@ -147,11 +152,12 @@ abstract class Entity {
    *   A renderable array of the entity for the provided view mode. If there is
    *   any error, then FALSE is returned.
    */
-  public function view($view_mode = 'default') {
+  public function view($view_mode = 'full') {
     $entities = array($this->entity);
     $langcode = NULL;
     $page = NULL;
 
+    $output = array();
     $info = entity_get_info($this->entity_type);
     if (isset($info['view callback'])) {
       $entities = entity_key_array_by_property(
@@ -159,7 +165,7 @@ abstract class Entity {
         $info['entity keys']['id']
       );
 
-      return $info['view callback'](
+      $output = $info['view callback'](
         $entities,
         $view_mode,
         $langcode,
@@ -170,7 +176,7 @@ abstract class Entity {
       'EntityAPIControllerInterface',
       class_implements($info['controller class'])
     )) {
-      return entity_get_controller($this->entity_type)->view(
+      $output = entity_get_controller($this->entity_type)->view(
         $entities,
         $view_mode,
         $langcode,
@@ -178,7 +184,11 @@ abstract class Entity {
       );
     }
 
-    return FALSE;
+    if (!empty($output[$this->entity_type][$this->getId()])) {
+      return $output[$this->entity_type][$this->getId()];
+    }
+
+    return array();
   }
 
   /**
@@ -259,12 +269,280 @@ abstract class Entity {
   }
 
   public function hasFieldAccess($field_name, $op = 'view') {
-    if ($field = field_info_field($field_name) && in_array(
+    if (($field = field_info_field($field_name)) && in_array(
         $op,
         array('edit', 'view')
       )
     ) {
       return field_access($op, $field, $this->getEntityType(), $this->entity);
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Returns text field as viewed by the logged in user in the provided view
+   * mode.
+   *
+   * @param string $field_name
+   *   Field name.
+   * @param string $view_mode
+   *   View mode. If this is not provided, then "full" is assumed.
+   * @param bool $post_process
+   *   Whether to post process the field values before returning.
+   * @param bool $from_entity_view
+   *   Whether to return the field values using field_view_field() function or
+   *   building the entity view and returning the field value from there. If
+   *   code uses entity_view_alter() or node_view_alter(), then the two values
+   *   can differ. If you don't expect them to be different, then it is
+   *   recommended to keep this argument to FALSE since it will be faster.
+   *
+   * @return null|array $view
+   *   Renderable array of the field if it exists, NULL otherwise.
+   */
+  public function viewText(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    $view = array();
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function viewDatetime(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    $view = array();
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function viewEntityreference(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function viewTaxonomyTermReference(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#title'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  /**
+   * Returns field as viewed by the logged in user in the provided view mode.
+   *
+   * @param string $field_name
+   *   Field name.
+   * @param string $view_mode
+   *   View mode. If this is not provided, then "full" is assumed.
+   * @param bool $post_process
+   *   Whether to post process the field values before returning.
+   * @param bool $from_entity_view
+   *   Whether to return the field values using field_view_field() function or
+   *   building the entity view and returning the field value from there. If
+   *   code uses entity_view_alter() or node_view_alter(), then the two values
+   *   can differ. If you don't expect them to be different, then it is
+   *   recommended to keep this argument to FALSE since it will be faster.
+   *
+   * @return null|array $view
+   *   Renderable array of the field if it exists, NULL otherwise.
+   */
+  public function viewField(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($instance = $this->getFieldInstance($field_name)) {
+      // Field instance exists.
+      // If post-processing is not required, then just return the field values
+      // as provided by Drupal.
+      if (!$post_process) {
+        if ($from_entity_view) {
+          $view = $this->view($view_mode);
+          if (!empty($view[$field_name])) {
+            $view = $view[$field_name];
+          }
+        }
+        else {
+          $view = field_view_field(
+            $this->entity_type,
+            $this->entity,
+            $field_name,
+            $view_mode,
+            NULL
+          );
+        }
+
+        return $view;
+      }
+
+      // Get the field instance value here.
+      $function = 'view' . Utilities::convertUnderscoreToTitleCase(
+          $instance['widget']['type']
+        );
+
+      // Check if a function exists for getting value from this particular field
+      // instance.
+      if (method_exists($this, $function)) {
+        return $this->$function(
+          $field_name,
+          $view_mode,
+          $post_process,
+          $from_entity_view
+        );
+      }
+      else {
+        // Check if a function exists for getting value from this particular
+        // field type.
+        $field = $this->getFieldInfo($field_name);
+        $function = 'view' . Utilities::convertUnderscoreToTitleCase(
+            $field['type']
+          );
+        if (method_exists($this, $function)) {
+          return $this->$function(
+            $field_name,
+            $view_mode,
+            $post_process,
+            $from_entity_view
+          );
+        }
+      }
+
+      // Field instance exists but no function is defined to get value from it.
+      return NULL;
+    }
+
+    // There is no such field instance for the given entity. Check if it's a
+    // property.
+    if (!empty($this->entity->$field_name)) {
+      return $this->entity->$field_name;
     }
 
     return NULL;
@@ -319,11 +597,15 @@ abstract class Entity {
       $field_name = '';
       if (strrpos($name, 'View') == strlen($name) - 4) {
         $op = 'view';
-        $field_name = Utilities::convertTitleCaseToUnderscore(substr($name, 0, -4));
+        $field_name = Utilities::convertTitleCaseToUnderscore(
+          substr($name, 0, -4)
+        );
       }
       elseif (strrpos($name, 'Update') == strlen($name) - 6) {
         $op = 'edit';
-        $field_name = Utilities::convertTitleCaseToUnderscore(substr($name, 0, -6));
+        $field_name = Utilities::convertTitleCaseToUnderscore(
+          substr($name, 0, -6)
+        );
       }
 
       if (in_array($op, array('view', 'edit'))) {
@@ -332,10 +614,63 @@ abstract class Entity {
     }
     elseif (strpos($name, 'get') === 0) {
       // Function name starts with "get".
-      return $this->getFieldValue(
+      array_unshift(
+        $arguments,
         Utilities::convertTitleCaseToUnderscore(substr($name, 3))
       );
+
+      return call_user_func_array(array($this, 'getFieldValue'), $arguments);
     }
+    elseif (strpos($name, 'view') === 0) {
+      // Function name starts with "view".
+      array_unshift(
+        $arguments,
+        Utilities::convertTitleCaseToUnderscore(substr($name, 4))
+      );
+
+      return call_user_func_array(array($this, 'viewField'), $arguments);
+    }
+  }
+
+  public function getText($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    $output = array();
+    foreach ($field as $key => $val) {
+      if (!empty($val['safe_value'])) {
+        $output[] = $val['safe_value'];
+      }
+      else {
+        $output[] = $val['value'];
+      }
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function getDatetime($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    $output = array();
+    foreach ($field as $key => $val) {
+      $output[] = $val['value'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
   }
 
   public function getTextTextareaWithSummary(
@@ -377,6 +712,25 @@ abstract class Entity {
     return $output;
   }
 
+  public function getAutocompleteDeluxeTaxonomy($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    $output = array();
+    foreach ($field as $key => $val) {
+      $term = taxonomy_term_load($val['tid']);
+      $output[$key] = $term->name;
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
   public function getTaxonomyTermReference($field_name, $post_process = TRUE) {
     $field = field_get_items($this->entity_type, $this->entity, $field_name);
     if (!$post_process) {
@@ -388,6 +742,57 @@ abstract class Entity {
       $output[] = $val['tid'];
     }
 
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function getListBoolean($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    return $field[0]['value'];
+  }
+
+  public function viewListBoolean(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
     return $output;
   }
 
@@ -396,16 +801,27 @@ abstract class Entity {
    *
    * @param string $field_name
    *   Field name.
+   * @param bool $post_process
+   *   Whether to post process the field values before returning.
    *
    * @return mixed $output
    *   Value of the field.
    *
    * @throws \EntityMalformedException
    */
-  public function getFieldValue($field_name) {
+  public function getFieldValue($field_name, $post_process = TRUE) {
     if ($instance = $this->getFieldInstance($field_name)) {
+      // Field instance exists.
+      // If post-processing is not required, then just return the field values
+      // as provided by Drupal.
+      if (!$post_process) {
+        return $this->getFieldItems($field_name);
+      }
+
       // Get the field instance value here.
-      $function = 'get' . Utilities::convertUnderscoreToTitleCase($instance['widget']['type']);
+      $function = 'get' . Utilities::convertUnderscoreToTitleCase(
+          $instance['widget']['type']
+        );
 
       // Check if a function exists for getting value from this particular field
       // instance.
@@ -416,7 +832,9 @@ abstract class Entity {
         // Check if a function exists for getting value from this particular
         // field type.
         $field = $this->getFieldInfo($field_name);
-        $function = 'get' . Utilities::convertUnderscoreToTitleCase($field['type']);
+        $function = 'get' . Utilities::convertUnderscoreToTitleCase(
+            $field['type']
+          );
         if (method_exists($this, $function)) {
           return $this->$function($field_name);
         }
@@ -471,5 +889,51 @@ abstract class Entity {
    */
   public function getFieldInfo($field_name) {
     return field_info_field($field_name);
+  }
+
+  public function getFieldItems($field_name) {
+    return field_get_items($this->entity_type, $this->entity, $field_name);
+  }
+
+  public static function createDefault(&$entities, $num = 1, $skip = array()) {
+    $output = array();
+    for ($i = 0; $i < $num; $i++) {
+
+      $entity_type = self::getEntityType();
+      $original_class = get_called_class();
+      $class = new \ReflectionClass($original_class);
+      $formClass = "tests\\phpunit_tests\\custom\\forms\\entities\\" . $entity_type . "\\" . $class->getShortName(
+        ) . 'Form';
+
+      $classForm = new $formClass();
+      list($out, $fields, $msg) = $classForm->fillDefaultValues(
+        $entities,
+        $skip
+      );
+      if (!$out) {
+        return array(FALSE, $output, $msg);
+      }
+
+      $out = $classForm->submit();
+      if (!$out) {
+        return array(
+          FALSE,
+          $output,
+          "Could not create $original_class entity."
+        );
+      }
+
+      $object = $classForm->getEntityObject();
+      $output[] = $object;
+      $entities[Utilities::convertTitleCaseToUnderscore(
+        $original_class
+      )][$object->getId()] = $object;
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return array(TRUE, $output, "");
   }
 }

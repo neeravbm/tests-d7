@@ -6,11 +6,11 @@
  * Time: 10:55 PM
  */
 
-namespace tests\phpunit_tests\custom\entities\terms;
+namespace tests\phpunit_tests\custom\entities\taxonomy_term;
 
 use tests\phpunit_tests\core\entities\TaxonomyTerm as TaxonomyTerm;
 
-class ContractedFamily extends TaxonomyTerm {
+class Mfn extends TaxonomyTerm {
 
   /**
    * Default constructor.
