@@ -339,6 +339,44 @@ abstract class Entity {
     return $output;
   }
 
+  public function viewTextLong(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
   public function viewDatetime(
     $field_name,
     $view_mode = 'full',
@@ -369,6 +407,62 @@ abstract class Entity {
     $output = array();
     foreach (element_children($view) as $key) {
       $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function getFile($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    $output = array();
+    foreach ($field as $fid => $file) {
+      $output[] = $fid;
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function viewFile(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = drupal_render($view[$key]);
     }
 
     if (sizeof($output) == 1) {
@@ -503,6 +597,10 @@ abstract class Entity {
         return $view;
       }
 
+      if (!$this->hasFieldAccess($field_name)) {
+        return NULL;
+      }
+
       // Get the field instance value here.
       $function = 'view' . Utilities::convertUnderscoreToTitleCase(
           $instance['widget']['type']
@@ -630,6 +728,173 @@ abstract class Entity {
 
       return call_user_func_array(array($this, 'viewField'), $arguments);
     }
+    elseif (strpos($name, "check") === 0 && strrpos($name, 'Items') == strlen(
+        $name
+      ) - 5
+    ) {
+      // Function name starts with "check" and ends with "Values".
+      $field_name = Utilities::convertTitleCaseToUnderscore(
+        substr($name, 5, -5)
+      );
+      array_unshift($arguments, $field_name);
+      call_user_func_array(array($this, 'checkFieldItems'), $arguments);
+    }
+    elseif (strpos($name, "check") === 0 && strrpos($name, 'Views') == strlen(
+        $name
+      ) - 5
+    ) {
+      // Function name starts with "check" and ends with "Values".
+      $field_name = Utilities::convertTitleCaseToUnderscore(
+        substr($name, 5, -5)
+      );
+      array_unshift($arguments, $field_name);
+      call_user_func_array(array($this, 'checkFieldViews'), $arguments);
+    }
+  }
+
+  public function checkDatetimeItems($field_name, $testClass, $values) {
+    $function = "get" . Utilities::convertUnderscoreToTitleCase($field_name);
+    /*$testClass->assertEquals(
+      $values,
+      $this->$function(),
+      "Values for " . $field_name . " do not match."
+    );*/
+  }
+
+  public function checkDatetimeViews(
+    $field_name,
+    $testClass,
+    $values,
+    $view_mode = 'default'
+  ) {
+    $function = 'view' . Utilities::convertUnderscoreToTitleCase($field_name);
+  }
+
+  public function checkFileItems($field_name, $testClass, $values) {
+    $function = "get" . Utilities::convertUnderscoreToTitleCase($field_name);
+  }
+
+  public function checkFileViews(
+    $field_name,
+    $testClass,
+    $values,
+    $view_mode = 'default'
+  ) {
+    $files = call_user_func(
+      array(
+        $this,
+        "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+      ),
+      $view_mode
+    );
+
+    /*$testClass->assertEquals(
+      $values,
+      $files,
+      "Values for " . $field_name . " do not match."
+    );*/
+  }
+
+  public function checkFieldViews(
+    $field_name,
+    $testClass,
+    $values,
+    $view_mode = 'default'
+  ) {
+    if ($instance = $this->getFieldInstance($field_name)) {
+      $function = 'check' . Utilities::convertUnderscoreToTitleCase(
+          $instance['widget']['type']
+        ) . 'Views';
+      if (method_exists($this, $function)) {
+        $this->$function($field_name, $testClass, $values, $view_mode);
+      }
+      else {
+        $field = $this->getFieldInfo($field_name);
+        $function = "check" . Utilities::convertUnderscoreToTitleCase(
+            $field['type']
+          ) . "Views";
+        if (method_exists($this, $function)) {
+          $this->$function($field_name, $testClass, $values, $view_mode);
+        }
+        else {
+          $testClass->assertEquals(
+            $values,
+            call_user_func(
+              array(
+                $this,
+                "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+              ),
+              $view_mode
+            ),
+            "Values for " . $field_name . " do not match."
+          );
+        }
+      }
+
+      return;
+    }
+
+    // Field instance does not exist. Check if a property exists and its value
+    // matches.
+    $testClass->assertObjectHasAttribute(
+      $field_name,
+      $this->entity,
+      "Field " . $field_name . " not found."
+    );
+    $testClass->assertEquals(
+      $values,
+      $this->entity->$field_name,
+      "Values of the " . $field_name . " do not match."
+    );
+  }
+
+  public function checkFieldItems($field_name, $testClass, $values) {
+    if ($instance = $this->getFieldInstance($field_name)) {
+      $function = 'check' . Utilities::convertUnderscoreToTitleCase(
+          $instance['widget']['type']
+        ) . 'Items';
+      if (method_exists($this, $function)) {
+        $this->$function($field_name, $testClass, $values);
+      }
+      else {
+        $field = $this->getFieldInfo($field_name);
+        $function = "check" . Utilities::convertUnderscoreToTitleCase(
+            $field['type']
+          ) . "Items";
+        if (method_exists($this, $function)) {
+          $this->$function($field_name, $testClass, $values);
+        }
+        else {
+          $testClass->assertEquals(
+            $values,
+            call_user_func(
+              array(
+                $this,
+                "get" . Utilities::convertUnderscoreToTitleCase($field_name)
+              ),
+              $testClass,
+              $values
+            ),
+            "Values for " . $field_name . " do not match."
+          );
+        }
+      }
+
+      return;
+    }
+
+    // Field instance does not exist. Check if a property exists and its value
+    // matches.
+    $testClass->assertObjectHasAttribute(
+      $field_name,
+      $this->entity,
+      "Field " . $field_name . " not found."
+    );
+    $testClass->assertEquals(
+      $values,
+      $this->entity->$field_name,
+      "Values of the " . $field_name . " do not match."
+    );
   }
 
   public function getText($field_name, $post_process = TRUE) {
@@ -677,7 +942,7 @@ abstract class Entity {
     $field_name,
     $post_process = TRUE
   ) {
-    $field = field_get_items($this->entity_type, $this->entity, $field_name);
+    $field = $this->getFieldItems($field_name);
     if (!$post_process) {
       return $field;
     }
@@ -695,11 +960,34 @@ abstract class Entity {
     return $output;
   }
 
+  public function getTextLong($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    $output = array();
+    foreach ($field as $key => $val) {
+      if (!empty($val['safe_value'])) {
+        $output[] = $val['safe_value'];
+      }
+      else {
+        $output[] = $val['value'];
+      }
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
   public function getEntityreferenceViewWidget(
     $field_name,
     $post_process = TRUE
   ) {
-    $field = field_get_items($this->entity_type, $this->entity, $field_name);
+    $field = $this->getFieldItems($field_name);
     if (!$post_process) {
       return $field;
     }
@@ -709,10 +997,17 @@ abstract class Entity {
       $output[] = $val['target_id'];
     }
 
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
     return $output;
   }
 
-  public function getAutocompleteDeluxeTaxonomy($field_name, $post_process = TRUE) {
+  public function getAutocompleteDeluxeTaxonomy(
+    $field_name,
+    $post_process = TRUE
+  ) {
     $field = $this->getFieldItems($field_name);
     if (!$post_process) {
       return $field;
@@ -747,6 +1042,147 @@ abstract class Entity {
     }
 
     return $output;
+  }
+
+  public function checkTaxonomyTermReferenceItems(
+    $field_name,
+    $testClass,
+    $values
+  ) {
+    $testClass->assertEquals(
+      Utilities::getId($values),
+      call_user_func(
+        array(
+          $this,
+          "get" . Utilities::convertUnderscoreToTitleCase($field_name)
+        )
+      ),
+      "Values of " . $field_name . " do not match."
+    );
+  }
+
+  public function checkTaxonomyTermReferenceViews(
+    $field_name,
+    $testClass,
+    $values,
+    $view_mode = 'default'
+  ) {
+    if (is_array($values)) {
+      $labels = array();
+      foreach ($values as $value) {
+        if (is_string($value)) {
+          $labels[] = $value;
+        }
+        else {
+          $labels[] = $value->getLabel();
+        }
+      }
+      $testClass->assertEquals(
+        $labels,
+        call_user_func(
+          array(
+            $this,
+            "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+          ),
+          $view_mode
+        ),
+        "Values of " . $field_name . " for " . $view_mode . " do not match."
+      );
+    }
+    elseif (is_object($values)) {
+      $testClass->assertEquals(
+        Utilities::getLabel($values),
+        call_user_func(
+          array(
+            $this,
+            "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+          ),
+          $view_mode
+        ),
+        "Values of " . $field_name . " for " . $view_mode . " do not match."
+      );
+    }
+    else {
+      $testClass->assertEquals(
+        $values,
+        call_user_func(
+          array(
+            $this,
+            "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+          ),
+          $view_mode
+        ),
+        "Values of " . $field_name . " for " . $view_mode . " do not match."
+      );
+    }
+  }
+
+  public function checkAutocompleteDeluxeTaxonomyItems(
+    $field_name,
+    $testClass,
+    $values
+  ) {
+    $term_labels = call_user_func(
+      array($this, "get" . Utilities::convertUnderscoreToTitleCase($field_name))
+    );
+
+    $testClass->assertEquals(
+      $values,
+      $term_labels,
+      "Values of the " . $field_name . " do not match."
+    );
+  }
+
+  public function checkAutocompleteDeluxeTaxonomyViews(
+    $field_name,
+    $testClass,
+    $values,
+    $view_mode = 'default'
+  ) {
+    $term_labels = call_user_func(
+      array(
+        $this,
+        "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+      ),
+      $view_mode
+    );
+
+    $testClass->assertEquals(
+      $values,
+      $term_labels,
+      "Values of the " . $field_name . " do not match."
+    );
+  }
+
+  public function checkTaxonomyAutocompleteItems(
+    $field_name,
+    $testClass,
+    $values
+  ) {
+    $current_tids = call_user_func(
+      array($this, "get" . Utilities::convertUnderscoreToTitleCase($field_name))
+    );
+
+    if (!is_array($current_tids)) {
+      $term = taxonomy_term_load($current_tids);
+      $testClass->assertEquals(
+        $values,
+        $term->name,
+        "Values of the " . $field_name . " do not match."
+      );
+    }
+    else {
+      $terms = taxonomy_term_load_multiple($current_tids);
+      $term_labels = array();
+      foreach ($terms as $tid => $term) {
+        $term_labels[] = $term->name;
+      }
+      $testClass->assertEquals(
+        $values,
+        $term_labels,
+        "Values of the " . $field_name . " do not match."
+      );
+    }
   }
 
   public function getListBoolean($field_name, $post_process = TRUE) {
@@ -787,6 +1223,99 @@ abstract class Entity {
     $output = array();
     foreach (element_children($view) as $key) {
       $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function checkListBooleanViews(
+    $field_name,
+    $testClass,
+    $values,
+    $view_mode = 'default'
+  ) {
+    $field = $this->getFieldInfo($field_name);
+    $instance = $this->getFieldInstance($field_name);
+
+    $current_markup = call_user_func(
+      array(
+        $this,
+        "view" . Utilities::convertUnderscoreToTitleCase($field_name)
+      ),
+      $view_mode
+    );
+    if (is_array($values)) {
+      $values = array_walk(
+        $values,
+        function ($value, $key, $map) { return $map[$value]; },
+        $field['settings']['allowed_values']
+      );
+      $testClass->assertEquals(
+        $values,
+        $current_markup,
+        "View of " . $field_name . " for " . $view_mode . " view mode does not match."
+      );
+    }
+    else {
+      $testClass->assertEquals(
+        $field['settings']['allowed_values'][$values],
+        $current_markup,
+        "View of " . $field_name . " for " . $view_mode . " view mode does not match."
+      );
+    }
+  }
+
+  public function viewNumberInteger(
+    $field_name,
+    $view_mode = 'full',
+    $post_process = TRUE,
+    $from_entity_view = FALSE
+  ) {
+    if ($from_entity_view) {
+      $view = $this->view($view_mode);
+      if (!empty($view[$field_name])) {
+        $view = $view[$field_name];
+      }
+    }
+    else {
+      $view = field_view_field(
+        $this->entity_type,
+        $this->entity,
+        $field_name,
+        $view_mode,
+        NULL
+      );
+    }
+
+    if (!$post_process) {
+      return $view;
+    }
+
+    $output = array();
+    foreach (element_children($view) as $key) {
+      $output[] = $view[$key]['#markup'];
+    }
+
+    if (sizeof($output) == 1) {
+      return $output[0];
+    }
+
+    return $output;
+  }
+
+  public function getNumberInteger($field_name, $post_process = TRUE) {
+    $field = $this->getFieldItems($field_name);
+    if (!$post_process) {
+      return $field;
+    }
+
+    $output = array();
+    foreach ($field as $key => $val) {
+      $output[] = $val['value'];
     }
 
     if (sizeof($output) == 1) {
@@ -869,13 +1398,21 @@ abstract class Entity {
       $this->entity_type,
       $this->entity
     );
-    $instance = field_info_instance(
+
+    return field_info_instance(
       $this->entity_type,
       $field_name,
       $bundle
     );
+  }
 
-    return $instance;
+  public function getFieldInstances() {
+    list(, , $bundle) = entity_extract_ids(
+      $this->entity_type,
+      $this->entity
+    );
+
+    return field_info_instances($this->entity_type, $bundle);
   }
 
   /**
@@ -895,7 +1432,9 @@ abstract class Entity {
     return field_get_items($this->entity_type, $this->entity, $field_name);
   }
 
-  public static function createDefault(&$entities, $num = 1, $skip = array()) {
+  public static function createDefault($num = 1, $skip = array()) {
+    global $entities;
+
     $output = array();
     for ($i = 0; $i < $num; $i++) {
 
@@ -906,16 +1445,13 @@ abstract class Entity {
         ) . 'Form';
 
       $classForm = new $formClass();
-      list($out, $fields, $msg) = $classForm->fillDefaultValues(
-        $entities,
-        $skip
-      );
-      if (!$out) {
+      list($success, $fields, $msg) = $classForm->fillDefaultValues($skip);
+      if (!$success) {
         return array(FALSE, $output, $msg);
       }
 
-      $out = $classForm->submit();
-      if (!$out) {
+      $success = $classForm->submit();
+      if (!$success) {
         return array(
           FALSE,
           $output,
@@ -925,15 +1461,187 @@ abstract class Entity {
 
       $object = $classForm->getEntityObject();
       $output[] = $object;
-      $entities[Utilities::convertTitleCaseToUnderscore(
-        $original_class
-      )][$object->getId()] = $object;
+
+      $entities[$entity_type][$object->getId()] = $object;
     }
 
     if (sizeof($output) == 1) {
-      return $output[0];
+      return array(TRUE, $output[0], "");
     }
 
     return array(TRUE, $output, "");
+  }
+
+  public function checkViews(
+    $testClass,
+    $values,
+    $skip = array(),
+    $view_mode = 'default'
+  ) {
+    $instances = $this->getFieldInstances();
+
+    $checked_fields = array();
+    foreach ($instances as $field_name => $instance) {
+      if (isset($values[$field_name])) {
+        if (!in_array($field_name, $skip)) {
+          $function = "check" . Utilities::convertUnderscoreToTitleCase(
+              $field_name
+            ) . "Views";
+          $this->$function($testClass, $values[$field_name], $view_mode);
+        }
+        $checked_fields[] = $field_name;
+      }
+    }
+
+    $unchecked_fields = array_diff(array_keys($values), $checked_fields);
+    $unchecked_fields = array_diff($unchecked_fields, $skip);
+    // Unchecked fields could be properties.
+    foreach ($unchecked_fields as $field_name) {
+      $testClass->assertObjectHasAttribute(
+        $field_name,
+        $this->entity,
+        "Field " . $field_name . " not found."
+      );
+      $function = "get" . Utilities::convertUnderscoreToTitleCase(
+          $field_name
+        );
+      $testClass->assertEquals(
+        $values[$field_name],
+        $this->$function(),
+        "Values of the " . $field_name . " do not match."
+      );
+      unset($unchecked_fields[$field_name]);
+    }
+
+    $this->assertCount(
+      0,
+      sizeof($unchecked_fields),
+      "At least one property or field could not be found."
+    );
+  }
+
+  public function checkItems($testClass, $values, $skip = array()) {
+    $instances = $this->getFieldInstances();
+
+    $checked_fields = array();
+    foreach ($instances as $field_name => $instance) {
+      if (isset($values[$field_name])) {
+        if (!in_array($field_name, $skip)) {
+          $function = "check" . Utilities::convertUnderscoreToTitleCase(
+              $field_name
+            ) . "Items";
+          $this->$function($testClass, $values[$field_name]);
+        }
+        $checked_fields[] = $field_name;
+      }
+    }
+
+    $unchecked_fields = array_diff(array_keys($values), $checked_fields);
+    $unchecked_fields = array_diff($unchecked_fields, $skip);
+    // Unchecked fields could be properties.
+    foreach ($unchecked_fields as $field_name) {
+      $testClass->assertObjectHasAttribute(
+        $field_name,
+        $this->entity,
+        "Field " . $field_name . " not found."
+      );
+      $function = "get" . Utilities::convertUnderscoreToTitleCase(
+          $field_name
+        );
+      $testClass->assertEquals(
+        $values[$field_name],
+        $this->$function(),
+        "Values of the " . $field_name . " do not match."
+      );
+      unset($unchecked_fields[$field_name]);
+    }
+
+    $this->assertCount(
+      0,
+      sizeof($unchecked_fields),
+      "At least one property or field could not be found."
+    );
+  }
+
+  public function checkFieldStructure($testClass) {
+    $field_instances = $this->getFieldInstances();
+
+    // Make sure that field instances match.
+    $called_class = get_called_class();
+    //$testClass->assertEquals(array_keys($field_instances), array_keys($called_class::$fields));
+
+    foreach ($field_instances as $field_name => $instance) {
+      $widget = $instance['widget']['type'];
+      $field = $this->getFieldInfo($field_name);
+      $type = $field['type'];
+      $this->assertEquals(
+        $called_class::$fields['type'],
+        $type,
+        "Type of " . $field_name . " does not match."
+      );
+      $this->assertEquals(
+        $called_class::$fields['widget'],
+        $widget,
+        "Widget of " . $field_name . " does not match."
+      );
+    }
+  }
+
+  public function checkEntityPermissions($testClass, $skip = array()) {
+    if (!in_array('view', $skip)) {
+      $testClass->assertTrue(
+        $this->hasViewAccess(),
+        "User does not have permission to view the " . $this->entity_type
+      );
+    }
+
+    if (!in_array('update', $skip)) {
+      $testClass->assertTrue(
+        $this->hasUpdateAccess(),
+        "User does not have permission to update the " . $this->entity_type
+      );
+    }
+
+    if (!in_array('delete', $skip)) {
+      $testClass->assertTrue(
+        $this->hasDeleteAccess(),
+        "User does not have permission to delete the " . $this->entity_type
+      );
+    }
+  }
+
+  public function checkFieldPermissions(
+    $testClass,
+    $viewSkip = array(),
+    $editSkip = array()
+  ) {
+    foreach ($this->getFieldInstances() as $field_name => $instance) {
+      if (!in_array($field_name, $viewSkip)) {
+        $testClass->assertTrue(
+          call_user_func(
+            array(
+              $this,
+              "has" . Utilities::convertUnderscoreToTitleCase(
+                $field_name
+              ) . "ViewAccess"
+            )
+          ),
+          "User does not have view access to " . $field_name
+        );
+      }
+      if (!in_array($field_name, $editSkip)) {
+        $testClass->assertTrue(
+          call_user_func(
+            array(
+              $this,
+              "has" . Utilities::convertUnderscoreToTitleCase(
+                $field_name
+              ) . "UpdateAccess"
+            )
+          ),
+          "User does not have edit access to " . $field_name
+        );
+      }
+    }
   }
 }

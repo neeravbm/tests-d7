@@ -88,15 +88,23 @@ class NodeForm extends EntityForm {
    * this function and are different from Drupal's default values for the
    * fields.
    *
-   * @param array $entities
-   *   An array of entities passed by reference.
    * @param array $skip
    *   An array of field or property names that should not be filled with
    *   default values.
+   *
+   * @return array|void
    */
-  public function fillDefaultValues(&$entities, $skip = array()) {
-    if (!in_array('title', $skip)) {
-      $this->fillTitle(Utilities::getRandomString());
+  public function fillDefaultValues($skip = array()) {
+    list($success, $fields, $msg) = parent::fillDefaultValues($skip);
+    if (!$success) {
+      return array(FALSE, $fields, $msg);
     }
+
+    if (!in_array('title', $skip)) {
+      $fields['title'] = Utilities::getRandomString();
+      $this->fillTitle($fields['title']);
+    }
+
+    return array(TRUE, $fields, "");
   }
 }

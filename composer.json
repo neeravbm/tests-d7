@@ -1,5 +1,7 @@
 {
-    "require": {},
+    "require": {
+        "guzzle/guzzle": "dev-master"
+    },
     "minimum-stability": "dev",
     "config": {
         "bin-dir": "bin/"
@@ -8,6 +10,19 @@
         "phpunit/phpunit": "4.*"
     },
     "autoload": {
-        "classmap": ["phpunit_tests", "phpunit_tests/helper", "phpunit_tests/helper/entities", "phpunit_tests/helper/forms"]
+        "classmap": [
+            "phpunit_tests",
+            "phpunit_tests/core",
+            "phpunit_tests/core/entities",
+            "phpunit_tests/core/forms",
+            "phpunit_tests/custom",
+            "phpunit_tests/custom/entities",
+            "phpunit_tests/custom/entities/node",
+            "phpunit_tests/custom/entities/taxonomy_term",
+            "phpunit_tests/custom/forms",
+            "phpunit_tests/custom/forms/entities",
+            "phpunit_tests/custom/forms/entities/node",
+            "phpunit_tests/custom/forms/entities/taxonomy_term"
+        ]
     }
 }

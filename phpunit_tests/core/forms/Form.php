@@ -151,6 +151,8 @@ class Form {
    *   the field is single-valued.
    */
   public function fillTextField($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_array($values)) {
       $index = 0;
       foreach ($values as $value) {
@@ -172,6 +174,8 @@ class Form {
    *   Array of field values.
    */
   public function fillPathField($field_name, $values) {
+    $this->emptyField($field_name);
+
     $this->fillValues(
       array(
         $field_name => array(
@@ -180,6 +184,22 @@ class Form {
         )
       )
     );
+  }
+
+  public function fillNumber($field_name, $values) {
+    $this->emptyField($field_name);
+
+    // is_string doesn't work here because a numeric value shows FALSE in
+    // is_string().
+    if (!is_array($values)) {
+      $values = array($values);
+    }
+
+    $index = 0;
+    foreach ($values as $value) {
+      $this->form_state['values'][$field_name][LANGUAGE_NONE][$index]['value'] = $value;
+      $index++;
+    }
   }
 
   /**
@@ -191,6 +211,8 @@ class Form {
    *   A single value or an array.
    */
   public function fillTextAreaSingle($field_name, $value) {
+    $this->emptyField($field_name);
+
     if (is_string($value)) {
       $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['value'] = $value;
     }
@@ -210,6 +232,8 @@ class Form {
    *   A single string or an array.
    */
   public function fillTextAreaMultiple($field_name, $values) {
+    $this->emptyField($field_name);
+
     $index = 0;
     if (is_string($values)) {
       $values = array($values);
@@ -267,6 +291,8 @@ class Form {
     $summary = '',
     $format = ''
   ) {
+    $this->emptyField($field_name);
+
     $defaults = array();
     if (!empty($summary)) {
       $defaults['summary'] = $summary;
@@ -285,6 +311,37 @@ class Form {
     }
     elseif (is_array($values)) {
       // $values is an array. It can be an array of strings or array of arrays.
+      foreach ($values as $key => $val) {
+        if (is_string($val)) {
+          $input[$key] = array('value' => $val) + $defaults;
+        }
+        elseif (is_array($val)) {
+          $input[$key] = $val + $defaults;
+        }
+      }
+    }
+
+    $this->form_state['values'][$field_name][LANGUAGE_NONE] = $input;
+  }
+
+  public function fillTextTextarea($field_name, $values, $format = '') {
+    $this->emptyField($field_name);
+
+    $defaults = array();
+    if (!empty($format)) {
+      $defaults['format'] = $format;
+    }
+
+    unset($this->form_state['values'][$field_name]);
+
+    $input = array();
+
+    if (is_string($values)) {
+      // Values is a string, which means that it's single-valued.
+      $input[0] = array('value' => $values) + $defaults;
+    }
+    elseif (is_array($values)) {
+      // $values is an array. It can be an array of strings or an array of arrays.
       foreach ($values as $key => $val) {
         if (is_string($val)) {
           $input[$key] = array('value' => $val) + $defaults;
@@ -317,7 +374,7 @@ class Form {
    *   );
    */
   public function fillTaxonomyShs($field_name, $values) {
-    unset($this->form_state['values'][$field_name]);
+    $this->emptyField($field_name);
 
     $input = array();
     if (is_string($values)) {
@@ -441,8 +498,12 @@ class Form {
    * @param mixed $image_paths
    *   A path or an array of paths of images which are to be uploaded.
    */
-  public function fillFileGeneric($field_name, $image_paths) {
-    unset($this->form_state['values'][$field_name]);
+  public function fillFileGeneric(
+    $field_name,
+    $image_paths,
+    $scheme = 'public'
+  ) {
+    $this->emptyField($field_name);
 
     if (is_string($image_paths)) {
       $image_paths = array($image_paths);
@@ -450,18 +511,21 @@ class Form {
 
     $index = 0;
     $input = array();
+    $files = array();
     foreach ($image_paths as $image_path) {
       $filename = drupal_basename($image_path);
       $full_image_path = 'tests/assets/' . $image_path;
       $file_temp = file_get_contents($full_image_path);
       $file_temp = file_save_data(
         $file_temp,
-        'public://' . $filename,
+        $scheme . '://' . $filename,
         FILE_EXISTS_RENAME
       );
       // Set file status to temporary otherwise there is validation error.
       $file_temp->status = 0;
       file_save($file_temp);
+
+      $files[] = $file_temp;
 
       $input[$index] = array(
         'fid' => $file_temp->fid,
@@ -563,7 +627,7 @@ class Form {
       ),
     );*/
 
-
+    return $files;
   }
 
   /**
@@ -592,6 +656,8 @@ class Form {
    *   A URL string or an array of URL strings.
    */
   public function fillUrlField($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -604,6 +670,8 @@ class Form {
   }
 
   public function fillTaxonomyAutocomplete($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -615,6 +683,8 @@ class Form {
   }
 
   public function fillTermReferenceTree($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -627,6 +697,8 @@ class Form {
   }
 
   public function fillAutocompleteDeluxeTaxonomy($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -638,12 +710,16 @@ class Form {
   }
 
   public function fillOptionsOnoff($field_name, $value) {
+    $this->emptyField($field_name);
+
     if ($value) {
       $this->form_state['values'][$field_name][LANGUAGE_NONE] = $value;
     }
   }
 
   public function fillOptionsSelect($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -665,6 +741,8 @@ class Form {
   }
 
   public function fillTextTextfield($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -677,6 +755,8 @@ class Form {
   }
 
   public function fillDatePopup($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -696,6 +776,8 @@ class Form {
    *   A single entity id or an array of entity ids.
    */
   public function fillEntityreferenceField($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -708,6 +790,8 @@ class Form {
   }
 
   public function fillEntityreferenceViewWidget($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -728,6 +812,8 @@ class Form {
    *   A single email address or an array of email addresses.
    */
   public function fillEmailField($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_array($values)) {
       $index = 0;
       foreach ($values as $value) {
@@ -749,6 +835,8 @@ class Form {
    *   A single group id or an array of group ids.
    */
   public function fillOGGroupReferenceWidgetField($field_name, $values) {
+    $this->emptyField($field_name);
+
     if (is_string($values)) {
       $values = array($values);
     }
@@ -769,6 +857,8 @@ class Form {
    *   This is value of field
    */
   public function fillInlineEntityFormWidgetField($field_name, $value) {
+    $this->emptyField($field_name);
+
     if (!is_array($value)) {
       $value = array($value);
     }
@@ -815,6 +905,8 @@ class Form {
     $end_date,
     $end_time
   ) {
+    $this->emptyField($field_name);
+
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['show_date'] = 1;
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['value']['date'] = $start_date;
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0]['value']['time'] = $start_time;
@@ -831,6 +923,8 @@ class Form {
    *   This is value of filed
    */
   function fillPurlWidgetField($field_name, $value) {
+    $this->emptyField($field_name);
+
     $this->form_state['values'][$field_name]['value'] = $value;
     $this->form_state['values'][$field_name]['provider'] = 'spaces_og';
     $this->form_state['values'][$field_name]['id'] = 1773;
@@ -845,6 +939,7 @@ class Form {
    *   Value of the radio button to be set to.
    */
   public function fillRadioButtonsWidgetField($field_name, $value) {
+    $this->emptyField($field_name);
     $this->form_state['values'][$field_name][LANGUAGE_NONE]['value'] = $value;
   }
 
@@ -857,6 +952,7 @@ class Form {
    *   Group id.
    */
   public function fillVocabOGRelationWidgetField($field_name, $gid) {
+    $this->emptyField($field_name);
     $this->form_state['values'][$field_name]['group_type'] = 'node';
     $this->form_state['values'][$field_name]['gid'] = $gid;
   }
@@ -868,6 +964,7 @@ class Form {
    *   This is name of field
    */
   public function fillOGContentTypeWidgetField($field_name) {
+    $this->emptyField($field_name);
     $this->form_state['values']['og_vocab'][$field_name]['status'] = 1;
     $this->form_state['values']['og_vocab'][$field_name]['widget_type'] = 'entityreference_autocomplete_tags';
     $this->form_state['values']['og_vocab'][$field_name]['required'] = FALSE;
@@ -904,6 +1001,7 @@ class Form {
    *  This is id of vocabulary
    */
   public function fillOgVocabularyWidgetField($field_name, $vid, $value) {
+    $this->emptyField($field_name);
     $this->form_state['values'][$field_name][LANGUAGE_NONE][0][$vid] = $value;
   }
 

@@ -40,6 +40,13 @@ class TaxonomyFormTerm extends EntityForm {
         return;
       }
     }
+    else {
+      // Proper tid is not provided. Create a dummy term object.
+      $base_path = "tests\\phpunit_tests\\custom\\entities\\taxonomy_term\\";
+      $class_fullname = $base_path . substr($class_shortname, 0, -4);
+      $termObject = new $class_fullname();
+      $this->setEntityObject($termObject);
+    }
 
     // tid is not provided or is not numeric.
     $this->vocabulary = taxonomy_vocabulary_machine_name_load($vocabulary_name);
@@ -52,19 +59,23 @@ class TaxonomyFormTerm extends EntityForm {
    * this function and are different from Drupal's default values for the
    * fields.
    *
-   * @param array $entities
-   *   An array of entities passed by reference.
    * @param array $skip
    *   An array of field or property names that should not be filled with
    *   default values.
    *
+   * @internal param array $entities An array of entities passed by reference.*
+   *     An array of entities passed by reference.
    * @return array
    *   An array consisting of three values: TRUE (which means that the function
    *   executed without any error), an array of fields which were modified and
    *   an empty message.
    */
-  public function fillDefaultValues(&$entities, $skip = array()) {
-    $fields = array();
+  public function fillDefaultValues($skip = array()) {
+    list($success, $fields, $msg) = parent::fillDefaultValues($skip);
+    if (!$success) {
+      return array(FALSE, $fields, $msg);
+    }
+
     if (!in_array('name', $skip)) {
       $name = Utilities::getRandomString();
       $this->fillName($name);
@@ -90,11 +101,8 @@ class TaxonomyFormTerm extends EntityForm {
     $classname = get_called_class();
     $class = new \ReflectionClass($classname);
     $class_shortname = $class->getShortName();
-    $class_fullname = "tests\\phpunit_tests\\custom\\entities\\taxonomy_term\\" . substr(
-        $class_shortname,
-        0,
-        -4
-      );
+    $base_path = "tests\\phpunit_tests\\custom\\entities\\taxonomy_term\\";
+    $class_fullname = $base_path . substr($class_shortname, 0, -4);
 
     $form_state = $this->getFormState();
     $termObject = new $class_fullname($form_state['term']->tid);
